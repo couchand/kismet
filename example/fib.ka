@@ -1,0 +1,11 @@
+[LIT] 1
+[LIT] 1
+OVER
+OVER
++
+DUP
+[LIT] 13
+-
+[IF] 999
+[LIT] 0
+[IF] 4
