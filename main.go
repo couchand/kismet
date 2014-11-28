@@ -8,8 +8,10 @@ import (
     "io/ioutil"
 
     "github.com/couchand/kismet/asm"
+    "github.com/couchand/kismet/kasm"
     "github.com/couchand/kismet/assembler"
     "github.com/couchand/kismet/disassembler"
+    "github.com/couchand/kismet/instruction"
     "github.com/couchand/kismet/loader"
     "github.com/couchand/kismet/machine"
 )
@@ -36,9 +38,14 @@ func runFile(f string) {
     fmt.Printf("Done.\n\n")
 }
 
-func assembleFile(f, output string) {
-    parsed := asm.ParseString(f)
-    assembler.Assemble(parsed, output)
+func assembleFile(f, output string, useAsm bool) {
+    var instructions []instruction.T
+    if useAsm {
+        instructions = asm.ParseString(f)
+    } else {
+        instructions = kasm.ParseString(f)
+    }
+    assembler.Assemble(instructions, output)
 }
 
 func disassembleFile(f, output string) {
@@ -58,11 +65,13 @@ func disassembleFile(f, output string) {
 
 func main() {
     run, assemble, disassemble, output := "", "", "", ""
+    useAsm := false
 
     flag.StringVar(&run, "run", "", "run the object file")
     flag.StringVar(&assemble, "assemble", "", "assemble the input file")
     flag.StringVar(&disassemble, "disassemble", "", "disassemble the input file")
     flag.StringVar(&output, "output", "a.out", "output file name")
+    flag.BoolVar(&useAsm, "asm", false, "use basic asm assembler rather than kasm")
 
     flag.Parse()
 
@@ -81,7 +90,7 @@ func main() {
             panic(err)
         }
 
-        assembleFile(string(program), output)
+        assembleFile(string(program), output, useAsm)
         return
     }
     if len(disassemble) != 0 {

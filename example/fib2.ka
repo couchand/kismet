@@ -1,17 +1,17 @@
-[LIT] 1
-[LIT] 1
-[LIT] 2
->R
+1
+1
+2
+loop:>R
 OVER
 OVER
 +
 R>
 DUP
-[LIT] 20
+20
 -
-[IF] 24
-[LIT] 1
+JZ(end)
+1
 +
-[LIT] 0
-[IF] 6
-DROP
+0
+JZ(loop)
+end:DROP

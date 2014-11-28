@@ -1,0 +1,17 @@
+[LIT] 1
+[LIT] 1
+[LIT] 2
+>R
+OVER
+OVER
++
+R>
+DUP
+[LIT] 20
+-
+[IF] 24
+[LIT] 1
++
+[LIT] 0
+[IF] 6
+DROP

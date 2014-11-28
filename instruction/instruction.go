@@ -27,6 +27,10 @@ func IsOpcode(d int) bool {
     return d >= int(Halt) && d <= int(LitCode)
 }
 
+func IsDoubleWideOpcode(d int) bool {
+    return d == int(IfCode) || d == int(CallCode) || d == int(LitCode)
+}
+
 type T interface {
     GetOpcode() Opcode
     GetLength() int
@@ -43,6 +47,10 @@ func (o Opcode) GetLength() int {
 
 func (o Opcode) GetWords() []int {
     return []int{ int(o) }
+}
+
+func (o Opcode) IsDoubleWide() bool {
+    return o == IfCode || o == CallCode || o == LitCode
 }
 
 type DoubleWide struct {
