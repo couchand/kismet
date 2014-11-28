@@ -20,5 +20,5 @@ func TestOutput(t *testing.T) {
         instruction.If(2),
     }
 
-    Assemble(program, "testing.sto")
+    Assemble(program, "testing.ko")
 }

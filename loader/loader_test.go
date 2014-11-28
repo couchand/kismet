@@ -11,17 +11,18 @@ import (
 func TestOutput(t *testing.T) {
     expected := []instruction.T{
         instruction.Lit(1),
+        instruction.Dup,
         instruction.Lit(1),
         instruction.Add,
         instruction.Dup,
         instruction.Lit(10),
         instruction.Sub,
         instruction.If(14),
-        instruction.Lit(1),
-        instruction.If(1),
+        instruction.Lit(0),
+        instruction.If(2),
     }
 
-    actual, err := Load("testing.sto")
+    actual, err := Load("testing.ko")
 
     if err != nil {
         t.Errorf("Unexpected error: %v", err)
