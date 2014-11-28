@@ -67,7 +67,15 @@ func (a assembler) resolvePayload(p Parameter) int {
 }
 
 func ParseString(s string) (instructions []instruction.T) {
-    p := MakeParser(MakeStringLexer(s))
+    return parseLexer(MakeStringLexer(s))
+}
+
+func ParseFile(s, f string) (instructions []instruction.T) {
+    return parseLexer(MakeFileLexer(s, f))
+}
+
+func parseLexer(l Lexer) (instructions []instruction.T) {
+    p := MakeParser(l)
 
     parsed, err := p.Parse()
     if err != nil {

@@ -38,12 +38,12 @@ func runFile(f string) {
     fmt.Printf("Done.\n\n")
 }
 
-func assembleFile(f, output string, useAsm bool) {
+func assembleFile(f, input, output string, useAsm bool) {
     var instructions []instruction.T
     if useAsm {
         instructions = asm.ParseString(f)
     } else {
-        instructions = kasm.ParseString(f)
+        instructions = kasm.ParseFile(input, f)
     }
     assembler.Assemble(instructions, output)
 }
@@ -90,7 +90,7 @@ func main() {
             panic(err)
         }
 
-        assembleFile(string(program), output, useAsm)
+        assembleFile(string(program), assemble, output, useAsm)
         return
     }
     if len(disassemble) != 0 {

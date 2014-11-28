@@ -18,6 +18,8 @@ const (
     LabelToken
     ParenOpenToken
     ParenCloseToken
+    BracketOpenToken
+    BracketCloseToken
     ColonToken
 )
 
@@ -51,28 +53,40 @@ var parenOpenRE *regexp.Regexp = makeMatcher(parenOpenExpression)
 const parenCloseExpression string = "\\)"
 var parenCloseRE *regexp.Regexp = makeMatcher(parenCloseExpression)
 
+const bracketOpenExpression string = "\\["
+var bracketOpenRE *regexp.Regexp = makeMatcher(bracketOpenExpression)
+
+const bracketCloseExpression string = "\\]"
+var bracketCloseRE *regexp.Regexp = makeMatcher(bracketCloseExpression)
+
 const integerExpression string = "[0-9]+"
 var integerRE *regexp.Regexp = makeMatcher(integerExpression)
 
 const labelExpression string = "[a-zA-Z_][a-zA-Z_0-9]*"
 var labelRE *regexp.Regexp = makeMatcher(labelExpression)
 
-const instructionExpression string = "(!|\\+|-|>R|@|&|DROP|DUP|\\||OVER|R>|SWAP|XOR|JZ|CALL|RETURN)"
+const instructionExpression string = "((?i)!|\\+|-|>R|@|&|DROP|DUP|\\||OVER|R>|SWAP|XOR|JZ|CALL|RETURN)"
 var instructionRE *regexp.Regexp = makeMatcher(instructionExpression)
 
-const whitespaceExpression string = "[ \t\n\r]"
+const commentExpression string = "#"
+var commentRE *regexp.Regexp = makeMatcher(commentExpression)
+
+const whitespaceExpression string = "[ \t\n\r]+"
 var whitespaceRE *regexp.Regexp = makeMatcher(whitespaceExpression)
 
 const newlineExpression string = "(\n\r|\r\n|\n|\r)"
-var newlineRE *regexp.Regexp = makeMatcher(whitespaceExpression)
+var nextNewlineRE *regexp.Regexp = regexp.MustCompile(newlineExpression)
 
 var opts = []string{
     colonExpression,
     parenOpenExpression,
     parenCloseExpression,
+    bracketOpenExpression,
+    bracketCloseExpression,
     integerExpression,
     instructionExpression,
     labelExpression,
+    commentExpression,
 }
 var options = strings.Join(opts, "|")
 var nextTokenRE = regexp.MustCompile("(" + options + ")")
@@ -113,6 +127,9 @@ func (l lexerError) Error() string {
 
 func makeError(token Token, format string, params... interface{}) error {
     ps := make([]interface{}, len(params) + 3)
+    for i := range params {
+        ps[i] = params[i]
+    }
     ps[len(params) + 0] = token.FileName()
     ps[len(params) + 1] = token.LineNumber()
     ps[len(params) + 2] = token.ColumnNumber()
@@ -125,7 +142,7 @@ func (r rawToken) Instruction() (opcode instruction.Opcode, err error) {
         err = makeError(r, "Token '%v' is not an instruction", r.raw)
         return
     }
-    switch r.raw {
+    switch strings.ToUpper(r.raw) {
     case "!":
         return instruction.Store, nil
     case "+":
@@ -199,6 +216,10 @@ func MakeToken(raw string, file string, line int, column int) Token {
         return tok(ParenOpenToken)
     case parenCloseRE.MatchString(raw):
         return tok(ParenCloseToken)
+    case bracketOpenRE.MatchString(raw):
+        return tok(BracketOpenToken)
+    case bracketCloseRE.MatchString(raw):
+        return tok(BracketCloseToken)
     case integerRE.MatchString(raw):
         return tok(IntegerToken)
     case instructionRE.MatchString(raw):
@@ -208,15 +229,6 @@ func MakeToken(raw string, file string, line int, column int) Token {
     default:
         panic("unrecognized token")
     }
-}
-
-func makeErrorLexer(lexer *strLexer, format string, params... interface{}) error {
-    ps := make([]interface{}, len(params) + 3)
-    ps[len(params) + 0] = lexer.file
-    ps[len(params) + 1] = lexer.line
-    ps[len(params) + 2] = lexer.column
-    msg := fmt.Sprintf(format + " (%v, line %v, column %v)", ps...)
-    return lexerError(msg)
 }
 
 type strLexer struct {
@@ -231,12 +243,17 @@ func MakeStringLexer(s string) Lexer {
     return &strLexer{s, "<raw string>", 1, 1}
 }
 
+func MakeFileLexer(s, f string) Lexer {
+    return &strLexer{s, f, 1, 1}
+}
+
 func (s *strLexer) SetFileName(f string) {
     s.file = f
 }
 
 func addPos(s *strLexer, w string) {
-    newlines := newlineRE.FindAllStringIndex(w, 99)
+    newlines := nextNewlineRE.FindAllStringIndex(w, 99)
+    //fmt.Printf("found newlines in '%v': %v\n\n", w, newlines)
     if len(newlines) > 0 {
         last := newlines[len(newlines) - 1]
         s.line += len(newlines)
@@ -247,10 +264,13 @@ func addPos(s *strLexer, w string) {
 }
 
 func (s *strLexer) GetToken() (tok Token, err error) {
+    //fmt.Printf("Getting token from %v\n", s.string)
+
     loc := nextTokenRE.FindStringIndex(s.string)
     if loc == nil {
         if len(s.string) > 0 && !whitespaceRE.MatchString(s.string) {
-            err = makeErrorLexer(s, "illegal input found: %v", s.string)
+            t := MakeToken("", s.file, s.line, s.column)
+            err = makeError(t, "Illegal input '%v' found", s.string)
             return
         }
 
@@ -262,16 +282,39 @@ func (s *strLexer) GetToken() (tok Token, err error) {
         return
     }
 
+    //fmt.Printf("Found: %v\n", loc)
+
     if loc[0] != 0 {
         prefix := s.string[:loc[0]]
         if !whitespaceRE.MatchString(prefix) {
-            err = makeErrorLexer(s, "illegal input found: %v", s.string[:loc[0]])
+            t := MakeToken("", s.file, s.line, s.column)
+            err = makeError(t, "Illegal input '%v' found", prefix)
             return
         }
         addPos(s, prefix)
     }
 
     t := s.string[loc[0]:loc[1]]
+
+    //fmt.Printf("Found token %v\n", t)
+
+    if t == "#" {
+        newline := nextNewlineRE.FindStringIndex(s.string)
+
+        if newline == nil {
+            fmt.Println("EOF in comment")
+            tok = MakeToken("", s.file, s.line, s.column)
+            return
+        }
+
+        //fmt.Printf("Comment extends for %v characters\n", newline[0])
+
+        s.string = s.string[newline[1]:]
+        s.line += 1
+        s.column = 1
+
+        return s.GetToken()
+    }
 
     tok = MakeToken(t, s.file, s.line, s.column)
 

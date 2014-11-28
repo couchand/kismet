@@ -60,7 +60,7 @@ func (p *parser) parseInstruction(t Token) (i *InstructionPrototype, err error) 
             return
         }
         if lparen.Type() != ParenOpenToken {
-            err = makeError(lparen, "Expected instruction parameter")
+            err = makeError(lparen, "Expected open parenthesis")
             return
         }
         param, err = p.lexer.GetToken()
@@ -76,7 +76,7 @@ func (p *parser) parseInstruction(t Token) (i *InstructionPrototype, err error) 
             return
         }
         if rparen.Type() != ParenCloseToken {
-            err = makeError(rparen, "Expected instruction parameter")
+            err = makeError(rparen, "Expected close parenthesis")
             return
         }
 
@@ -95,6 +95,38 @@ func (p *parser) parseInstruction(t Token) (i *InstructionPrototype, err error) 
                 return
             }
             i.Payload = MakeLabelParameter(name)
+        }
+        return
+
+    case BracketOpenToken:
+        var param, rbracket Token
+
+        param, err = p.lexer.GetToken()
+        if err != nil {
+            return
+        }
+        if param.Type() != LabelToken {
+            err = makeError(param, "Expected label name")
+            return
+        }
+
+        rbracket, err = p.lexer.GetToken()
+        if err != nil {
+            return
+        }
+        if rbracket.Type() != BracketCloseToken {
+            err = makeError(rbracket, "Expected close bracket")
+            return
+        }
+
+        var name string
+        name, err = param.Label()
+        if err != nil {
+            return
+        }
+        i = &InstructionPrototype{
+            Opcode: instruction.LitCode,
+            Payload: MakeLabelParameter(name),
         }
         return
 

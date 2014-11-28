@@ -26,6 +26,7 @@ func TestParser(t *testing.T) {
     is, err := p.Parse()
     if err != nil {
         t.Errorf("Didn't expect error, got %v", err)
+        return
     }
 
     if is[0].Opcode != instruction.LitCode {
@@ -42,5 +43,31 @@ func TestParser(t *testing.T) {
     }
     if is[2].Opcode != instruction.Add {
         t.Errorf("Expected add instruction")
+    }
+}
+
+func TestLabelLiteral(t *testing.T) {
+    program := "0\n 1\n two:+\n [two]\n"
+
+    l := MakeStringLexer(program)
+    p := MakeParser(l)
+
+    is, err := p.Parse()
+    if err != nil {
+        t.Errorf("Didn't expect error, got %v", err)
+        return
+    }
+
+    if is[0].Opcode != instruction.LitCode {
+        t.Errorf("Expected literal instruction")
+    }
+    if is[0].Payload.IntVal() != 0 {
+        t.Errorf("Expected literal value 0")
+    }
+    if is[3].Opcode != instruction.LitCode {
+        t.Errorf("Expected literal instruction")
+    }
+    if is[3].Payload.VarName() != "two" {
+        t.Errorf("Expected label name two")
     }
 }
