@@ -1,0 +1,104 @@
+# runtime.ka
+
+# An example runtime.
+
+0 1 2 3 4 5 6 7 0
+call(cons) call(cons) call(cons) call(cons)
+call(cons) call(cons) call(cons) call(cons)
+
+[splat] call(apply)
+halt
+
+splat:
+  swap >R swap R>
+  return
+
+# MALLOC
+# size -> p
+#   Allocates `size` words of memory in the heap, returning `p`, the
+#   pointer to the allocated space.
+
+malloc:
+  [nextaddress] 1 + @   # fetch
+  swap over +           # increment
+  [nextaddress] 1 + !   # store
+  return
+
+# CONS
+# head tail -> cons
+#   Creates a cons cell with `head` the head and `tail` the tail and
+#   returns `cons`, the pointer to the cons cell.
+
+cons:
+  swap                  # we'll store head first
+  2 call(malloc)        # allocate cons cell
+  swap over !           # write head
+  swap over 1 + !       # write tail
+  return
+
+# CAR
+# cons -> head
+#   Extracts the `head` value of the `cons` cell.
+
+car:
+  @ return
+
+# CDR
+# cons -> tail
+#   Extracts the `tail` value of the `cons` cell.
+
+cdr:
+  1 + @ return
+
+# NIL
+# -> nil
+#   Returns the `nil` list, i.e., `0`.
+
+nil:
+  0 return
+
+# LEN
+# list -> length
+#   Calculates the `length` for the given `list`.
+
+len:
+  0
+lenkernel:
+# list len
+  over jz(lenret) # if zero, return zero
+  swap call(cdr)  # else get `cdr(list)`
+# len cdr(list)
+  swap 1 +        # add one
+# cdr(list) (len+1)
+  0 jz(lenkernel)   # and recursively call `len`
+lenret:
+# list len
+  swap drop
+  return
+
+# BR
+# addr ->
+#   Acts as though a call to `addr` was made explicitly.
+#   (WARNING: Self-modifying!)
+
+br: [brif] 1+ ! 0 brif: jz(0)
+
+# APPLY
+# list addr ->
+#   Execute the function at `addr` for each element in `list`.  The
+#   function should have the form `val ->`.
+
+apply:
+  over jz(applyend)     # done if list empty
+  over call(car)        # get next element
+  over call(br)         # call iterator
+  swap call(cdr) swap   # slice list
+  0 jz(apply)
+applyend:
+# list addr
+  drop drop return
+
+# The Heap.
+
+nextaddress: [data]
+data: 0
