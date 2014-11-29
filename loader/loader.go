@@ -68,7 +68,7 @@ func bytesToInstructions(bs []byte) (instructions []instruction.T) {
 }
 
 func LoadReader(reader io.Reader) (instructions []instruction.T, err error) {
-    bytes := make([]byte, 1024)
+    bytes := make([]byte, 4096)
     n, err := reader.Read(bytes)
     if err != nil {
         return

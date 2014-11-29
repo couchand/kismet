@@ -1,0 +1,240 @@
+# sieve.ka
+
+# Sieve of Eratosthenes implementation in kasm assembler
+#   for a description of the algorithm, see:
+#   <https://en.wikipedia.org/wiki/Sieve_of_Eratosthenes>
+
+# First, initialize the Sieve.  We want to loop through the entire
+#   data structure and perform some work on each cell, something
+#   we'll do quite frequently.  So let's make a subroutine for it,
+#   which will handle the loop and call a subroutine parameter for
+#   each entry in the structure.
+
+0 jz(init)
+
+# This requires first that we create a subroutine to handle branching
+#   to an arbitrary address, rather than one built-in to the code.
+#   We do this with a little bit of self-modifying code:
+
+# BR
+# addr ->
+#   Acts as though a call to `addr` was made explicitly.
+#   (WARNING: Self-modifying!)
+
+br: [brif] 1+ ! 0 brif: jz(0)
+
+# Now we can produce a loop function.  Per the best practice we will
+#   keep the loop variable on the stack, since looping and function
+#   calls should be mutually well-nested.
+
+# LOOP
+# count addr ->
+#   Loop `count` number of times, passing the number of previously-
+#   completed loops (i.e., a zero-indexed count) as the parameter of
+#   the subroutine at `addr`.  It should look like `index ->`.
+
+loop: 0
+loopkernel:
+dup >R                  # duplicate `index` and push to R
+over call(br)           # call `addr`
+over R> 1 +             # increment `index`
+dup >R -                # check `count == index`
+jz(loopend)
+
+R>                      # restore `index`
+0 jz(loopkernel)        # loop
+
+loopend:
+R> drop                 # drop `index`
+drop                    # drop `addr`
+drop                    # drop `count`
+return
+
+# One more thing before we can actually initialize the loop handler
+#   to provide to `loop`.
+
+clearcell:
+[sieve] +               # add offset param to `sieve` address
+1 swap !                # set the cell to 1
+return
+
+# Great, now we can initialize the size of the sieve.
+
+init:
+[max] 1 + @             # load loop count
+[clearcell] call(loop)  # loop.
+
+# Okay, now let's start ticking away at the primes, starting with 2.
+
+2
+
+primeloop:
+dup [sieve] + @         # load current guess for index
+jz(nextprime)           # if we know it's not prime, skip
+
+dup                     # copy index for loop kernel
+0 jz(primeloopkernel)   # allow for subroutines here
+
+# For each prime, we mark off every multiple as not a prime.  For this
+#   to work we're going to take loop to another level, incrementing by
+#   some number other than 1, namely each prime in turn.
+
+# LOOPBYTOFROM
+# by to from addr ->
+#   Loop from `from` to no more than `to`, incrementing by `by` each
+#   time, and passing the index as the parameter of the subroutine at
+#   `addr`.  It should look like `index ->`.
+
+loopbytofrom:
+swap
+
+loopbytofromkernel:
+dup >R                  # store index
+# by to addr index
+over call(br)           # call `addr`
+# by to addr
+R> swap >R              # load index, stash addr
+# by to index
+>R over R>              # stash index to copy increment
+
+loopbytofromcount:
+# by to incr index
+over jz(loopbytofromcountend)   # done if incr = 0
+1 +                     # increment index
+>R over R>              # stask index to copy to
+# by to incr to index
+swap over -             # compare index = to
+# by to incr index (to-index)
+jz(loopbytofromend)
+# by to incr index
+swap 1 - swap           # decrement incr
+0 jz(loopbytofromcount)
+
+loopbytofromcountend:
+# by to 0 index
+swap drop               # drop 0
+R> swap                 # restore addr
+0 jz(loopbytofromkernel)
+
+loopbytofromend:
+# by to incr index
+drop drop drop drop
+return
+
+# Our inner loop will need to be able to check inequality.  Since
+#   that's not built into the Canonical Stack Machine, we'll need to
+#   code it ourselves now.
+
+# LESSTHAN
+# a b -> result
+# Returns 1 if a is less than b, 0 otherwise.
+
+lessthan:
+    over 0 1- & 0 2- &  # is a negative?
+    over 0 1- & 0 2- &  # is b negative?
+
+    over over |
+    jz(lessthanI)       # neither negative
+
+    over over xor
+    jz(lessthanIII)     # both negative
+
+    jz(lessthangoreturn1) # b not negative, a negative
+    jz(lessthanreturn0) # a not negative, b negative
+
+lessthangoreturn1:
+    drop
+    0 jz(lessthanreturn1)
+
+lessthanI:
+    drop drop
+
+    1
+    0 jz(lessthanloop)
+
+lessthanIII:
+    drop drop
+
+    0 1 -
+    0 jz(lessthanloop)
+
+lessthanloop:
+# ai bi incr
+    >R                  # stash incr
+    over over
+    jz(lessthanloopreturn0)
+    jz(lessthanloopreturn1)
+    R> dup >R           # copy incr
+    + swap              # increment bi
+    R> dup >R
+    + swap              # increment ai
+    R> 0 jz(lessthanloop)
+
+lessthanloopreturn0:
+# ai bi ai
+    drop                # drop ai bi
+    1 R> +              # check if incr is negative
+    jz(lessthanreturn1)
+    0 jz(lessthanreturn0)
+
+lessthanloopreturn1:
+# ai bi
+    1 R> +              # check if incr is negative
+    jz(lessthanreturn0)
+    0 jz(lessthanreturn1)
+
+lessthanreturn0: drop drop 0 return
+lessthanreturn1: drop drop 1 return
+
+# And now the handler for each prime.
+
+primeloophandler:
+[sieve] + 0 swap !      # mark composite number
+return
+
+# Now we can finally actually call the handler for each prime.
+
+primeloopkernel:
+# prime                 # count by
+dup
+[max] 1 + @             # load max index
+over dup +              # start from prime * 2
+[primeloophandler]      # and handler
+call(loopbytofrom)
+dup [sieve] + 1 swap !  # make sure prime is still checked
+
+nextprime:
+1 +                     # increment index
+[max2] 1 + @            # load max prime
+over -                  # compare index = max
+jz(primefinish)
+0 jz(primeloop)         # loop next prime
+
+primefinish:
+drop                    # drop loop index
+
+# Finally we want to accumulate all of the primes on the stack.
+
+2                       # start with 2
+primefinishloop:
+dup [sieve] + @         # load status
+jz(primefinishend)
+dup                     # leave prime on stack
+0 jz(primefinishend)
+primefinishend:
+1 +                     # increment index
+[max] 1 + @             # load max index
+over -                  # compare index = max
+jz(exit)
+0 jz(primefinishloop)
+exit:
+drop
+halt
+
+# constants.
+
+max: 4096
+max2: 64
+
+# The sieve will be stored in memory after our data section:
+sieve: 0

@@ -1,0 +1,10 @@
+# constants.ka
+
+# An example of the use of constants.
+
+[big] 1 + @             # load big
+[large] 1 + @           # load large
++                       # sum
+
+big: 1000
+large: 2000

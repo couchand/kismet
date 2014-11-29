@@ -15,7 +15,7 @@ func MakeAssembler(is []*InstructionPrototype, ls LabelIndex) assembler {
     return assembler{is, ls}
 }
 
-func (a assembler) Layout() {
+func (a assembler) Layout() int {
     offset := 0
     for _, instr := range a.instructions {
         //fmt.Printf("Laying out %v at %v\n", instr, offset)
@@ -27,6 +27,7 @@ func (a assembler) Layout() {
             offset += 1
         }
     }
+    return offset
 }
 
 func (a assembler) Assemble() (instructions []instruction.T) {
@@ -84,5 +85,7 @@ func parseLexer(l Lexer) (instructions []instruction.T) {
 
     a := MakeAssembler(parsed, p.labels)
     a.Layout()
+
+    //fmt.Printf("Assembling %v instructions for %v words.\n", len(parsed), words)
     return a.Assemble()
 }

@@ -16,7 +16,7 @@ import (
     "github.com/couchand/kismet/machine"
 )
 
-func runFile(f string) {
+func runFile(f string, debug, quiet bool) {
     p, err := loader.Load(f)
     if err != nil {
         fmt.Println("Error:", err)
@@ -26,11 +26,18 @@ func runFile(f string) {
     m := machine.Make10KMachine(p)
 
     for {
-        fmt.Printf("%v\n", m)
+        if !quiet {
+            fmt.Printf("%v\n", m)
+        }
 
         done := m.Step()
         if done {
             break
+        }
+
+        if debug {
+            var cmd string
+            fmt.Scanln(&cmd)
         }
     }
 
@@ -43,7 +50,7 @@ func assembleFile(f, input, output string, useAsm bool) {
     if useAsm {
         instructions = asm.ParseString(f)
     } else {
-        instructions = kasm.ParseFile(input, f)
+        instructions = kasm.ParseFile(f, input)
     }
     assembler.Assemble(instructions, output)
 }
@@ -65,13 +72,15 @@ func disassembleFile(f, output string) {
 
 func main() {
     run, assemble, disassemble, output := "", "", "", ""
-    useAsm := false
+    useAsm, debug, quiet := false, false, false
 
     flag.StringVar(&run, "run", "", "run the object file")
     flag.StringVar(&assemble, "assemble", "", "assemble the input file")
     flag.StringVar(&disassemble, "disassemble", "", "disassemble the input file")
     flag.StringVar(&output, "output", "a.out", "output file name")
     flag.BoolVar(&useAsm, "asm", false, "use basic asm assembler rather than kasm")
+    flag.BoolVar(&debug, "debug", false, "debug object file")
+    flag.BoolVar(&quiet, "quiet", false, "quiet output")
 
     flag.Parse()
 
@@ -81,7 +90,7 @@ func main() {
     }
 
     if len(run) != 0 {
-        runFile(run)
+        runFile(run, debug, quiet)
         return
     }
     if len(assemble) != 0 {

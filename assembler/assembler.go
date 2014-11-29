@@ -3,7 +3,7 @@ package assembler
 import (
     "io"
     "os"
-    "fmt"
+//    "fmt"
     "bytes"
     "bufio"
     "encoding/binary"
@@ -17,16 +17,22 @@ func Assemble(instructions []instruction.T, filename string) (err error) {
         return
     }
 
+    w := bufio.NewWriter(file)
+
     defer func() {
-        e := file.Close()
+        e := w.Flush()
+        if err != nil && e != nil {
+            panic(e)
+        } else if e != nil {
+            err = e
+        }
+        e = file.Close()
         if err != nil && e != nil {
             panic(e)
         } else if e != nil {
             err = e
         }
     }()
-
-    w := bufio.NewWriter(file)
 
     err = AssembleWriter(instructions, w)
     if err != nil {
@@ -38,7 +44,7 @@ func Assemble(instructions []instruction.T, filename string) (err error) {
 }
 
 func intsToBytes(ints []int) ([]byte) {
-    fmt.Println("byting", ints)
+    //fmt.Println("byting", ints)
     convert := func(v int) (bs []byte) {
         bs = make([]byte, 4)
         binary.LittleEndian.PutUint32(bs, uint32(v))
@@ -48,16 +54,23 @@ func intsToBytes(ints []int) ([]byte) {
     for idx, i := range ints {
         all[idx] = convert(i)
     }
-    fmt.Println("got", all)
+    //fmt.Println("got", all)
     return bytes.Join(all, []byte{})
 }
 
 func AssembleWriter(instructions []instruction.T, writer io.Writer) (err error) {
+    //fmt.Printf("Assembling %v instructions.\n", len(instructions))
+    wordCount, byteCount := 0, 0
     for _, instr := range instructions {
-        _, err = writer.Write(intsToBytes(instr.GetWords()))
+        words := instr.GetWords()
+        bs := intsToBytes(words)
+        _, err = writer.Write(bs)
         if err != nil {
             return
         }
+        wordCount += len(words)
+        byteCount += len(bs)
     }
+    //fmt.Printf("Assembled %v words and %v bytes.\n", wordCount, byteCount)
     return
 }

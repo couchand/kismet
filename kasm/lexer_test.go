@@ -16,7 +16,8 @@ func TestOutput(t *testing.T) {
         "-\n" +
         "jz(14)\n" +
         "1\n" +
-        "jz(1)\n"
+        "jz(1)\n" +
+        "halt\n"
 
     l := MakeStringLexer(program)
 
@@ -112,7 +113,7 @@ func TestOutput(t *testing.T) {
 }
 
 func TestComments(t *testing.T) {
-    program := "# this is a program\n0 # nothing\n 1 # something\n"
+    program := "# this is a #program\n0 # nothing\n 1 # something\n"
 
     l := MakeStringLexer(program)
 

@@ -41,8 +41,10 @@ func Make10KMachine(program []instruction.T) Machine {
 func (m *mac) String() string {
     mem := fmt.Sprintf("%v", m.mem)
     m.mem.SetAddress(m.pc)
+    this := m.mem.GetData()
+    m.mem.SetAddress(m.pc + 1)
     next := m.mem.GetData()
-    return fmt.Sprintf("10K Machine\nProgram Counter: 0x%x Value: 0x%x\nData Stack: %v\nReturn Stack: %v\nMemory: %v\n", m.pc, next, m.ds, m.rs, mem)
+    return fmt.Sprintf("10K Machine\nProgram Counter: 0x%x Value: 0x%x %x\nData Stack: %v\nReturn Stack: %v\nMemory: %v\n", m.pc, this, next, m.ds, m.rs, mem)
 }
 
 func (m *mac) Execute() {
@@ -83,11 +85,7 @@ func (m *mac) Step() bool {
         m.ds.Push(m.mem.GetData())
     case instruction.And:
         a, b := m.ds.Pop(), m.ds.Pop()
-        if a == 0 || b == 0 {
-            m.ds.Push(0)
-        } else {
-            m.ds.Push(1)
-        }
+        m.ds.Push(a & b)
     case instruction.Drop:
         m.ds.Pop()
     case instruction.Dup:
@@ -96,11 +94,7 @@ func (m *mac) Step() bool {
         m.ds.Push(d)
     case instruction.Or:
         a, b := m.ds.Pop(), m.ds.Pop()
-        if a == 0 && b == 0 {
-            m.ds.Push(0)
-        } else {
-            m.ds.Push(1)
-        }
+        m.ds.Push(a | b)
     case instruction.Over:
         top := m.ds.Pop()
         d := m.ds.Pop()
@@ -116,19 +110,7 @@ func (m *mac) Step() bool {
         m.ds.Push(d)
     case instruction.Xor:
         a, b := m.ds.Pop(), m.ds.Pop()
-        if a == 0 {
-            if b == 0 {
-                m.ds.Push(0)
-            } else {
-                m.ds.Push(1)
-            }
-        } else {
-            if b == 0 {
-                m.ds.Push(1)
-            } else {
-                m.ds.Push(0)
-            }
-        }
+        m.ds.Push(a ^ b)
     case instruction.IfCode:
         condition := m.ds.Pop()
         if condition == 0 {

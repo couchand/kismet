@@ -9,6 +9,8 @@ import (
 
 func instructionToString(t instruction.T) string {
     switch code := t.GetOpcode(); code {
+    case instruction.Halt:
+        return "HALT"
     case instruction.Store:
         return "!"
     case instruction.Add:
@@ -39,19 +41,19 @@ func instructionToString(t instruction.T) string {
         if t.GetLength() != 2 {
             panic("expected if jump address")
         }
-        return fmt.Sprintf("[IF] %v", t.GetWords()[1])
+        return fmt.Sprintf("[IF]\n%v", t.GetWords()[1])
     case instruction.CallCode:
         if t.GetLength() != 2 {
             panic("expected call jump address")
         }
-        return fmt.Sprintf("[CALL] %v", t.GetWords()[1])
+        return fmt.Sprintf("[CALL]\n%v", t.GetWords()[1])
     case instruction.Exit:
         return "[EXIT]"
     case instruction.LitCode:
         if t.GetLength() != 2 {
             panic("expected literal")
         }
-        return fmt.Sprintf("[LIT] %v", t.GetWords()[1])
+        return fmt.Sprintf("[LIT]\n%v", t.GetWords()[1])
     default:
         msg := fmt.Sprintf("unknown opcode %v", code)
         panic(msg)

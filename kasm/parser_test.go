@@ -18,7 +18,7 @@ func TestParser(t *testing.T) {
         "JZ(end)\n" +
         "1\n" +
         "JZ(loop)\n" +
-        "end:0\n"
+        "end:halt\n"
 
     l := MakeStringLexer(program)
     p := MakeParser(l)

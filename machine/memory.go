@@ -17,7 +17,7 @@ type Programmable interface {
 
 type tenK struct {
     address int
-    data [1024]int
+    data [8*1024]int
 }
 
 func (m *tenK) String() string {
@@ -25,7 +25,7 @@ func (m *tenK) String() string {
 }
 
 func (m *tenK) SetAddress(a int) {
-    if a >= 1024 {
+    if a >= 8*1024 {
         msg := fmt.Sprintf("address out of bounds: %v", a)
         panic(msg)
     }
@@ -42,7 +42,7 @@ func (m *tenK) SetData(v int) {
 }
 
 func (m *tenK) Program(ps []int) {
-    if len(ps) >= 1024 {
+    if len(ps) >= 8*1024 {
         msg := fmt.Sprintf("program too large: %v", len(ps))
         panic(msg)
     }
