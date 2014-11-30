@@ -1,0 +1,163 @@
+# math.ka
+
+# Standard math routines
+
+# MULTIPLY
+# multiplicand multiplier -> product
+#   Delegates to the shift-add algorithm for now.
+multiply:
+  0 jz(shiftadd)
+
+# DIVIDE
+# dividend divisor -> quotient remainder
+#   Delegates to the method of repeated subtractions for now.
+divide:
+  0 jz(repeatedsubtraction)
+
+# NEGATIVE
+# -> neg
+#   Returns a mask for the negative bit.
+
+negative:
+  0 2147483647 - 1 -    # most negative number
+  return
+
+# LESSTHAN
+# a b -> c
+#   Returns 1 if `a < b`, 0 otherwise.
+
+lessthan:
+  - call(negative) & jz(lessthanzero)
+  1 return
+lessthanzero:
+  0 return
+
+# SHIFTADD
+# multiplicand multiplier -> product
+#   Multiply the parameters with the shift-add algorithm.
+
+shiftadd:
+  # multiplicand multiplier
+  dup jz(shiftaddzero)  # if either parameter is zero, bail
+  swap dup jz(shiftaddzero)
+
+  # multiplier multiplicand
+  over call(negative)
+  swap over & xor       # check if `multiplier < 0`
+  jz(shiftaddmultipliernegative)
+
+  # multiplier multiplicand
+  >R                 # stash multiplicand
+  31 swap            # iterations
+  0                  # partial product
+
+shiftaddloop:
+  over 1073741824 &     # test MSB
+  # count multiplier product (multiplier.MSB)
+  jz(shiftaddloopnext)
+  R> dup >R +           # add multiplicand to partial product
+
+shiftaddloopnext:
+  # count multiplier product
+  >R >R 1 -             # stash multiplier & product
+  # (count-1)
+  dup jz(shiftaddloopend)
+  R> R>                 # restore multiplier & product
+  # count multiplier product
+  dup + swap dup + swap # shift both left
+  0 jz(shiftaddloop)
+
+shiftaddloopend:
+  # count
+  drop
+  # R: multiplicand product multiplier
+  R> drop R> R> drop
+  # product
+  return
+
+shiftaddzero:
+  # multiplicand multiplier
+  drop drop 0 return
+
+shiftaddmultipliernegative:
+  # multiplier multiplicand
+  0 swap -
+  # multiplier -multiplicand
+  swap 0 swap -
+  # -multiplicand -multiplier
+  0 jz(shiftadd)
+
+# REPEATEDSUBRACTION
+# dividend divisor -> quotient remainder
+#   Divide the `dividend` by the `divisor` using the method of
+#   repeated subtraction, returning the `quotient` and `remainder`.
+#   Always produces a result with a non-negative `remainder`.
+
+repeatedsubtraction:
+  # dividend divisor
+                        # check if `divisor = 0`
+  dup jz(repeatedsubtractionzero)
+
+  dup call(negative)
+  swap over & xor       # check if `divisor < 0`
+  jz(repeatedsubtractiondivisornegative)
+
+  over call(negative)
+  swap over & xor       # check if `dividend < 0`
+  jz(repeatedsubtractiondividendnegative)
+
+  # dividend divisor (both positive)
+  >R 0 swap R>
+repeatedsubtractionloop:
+  # quotient remainder divisor
+  over over
+  # quotient remainder divisor remainder divisor
+  call(lessthan) 1 xor
+  jz(repeatedsubtractionend)
+
+  >R >R 1 + R> R> dup >R - R>
+  # (quotient+1) (remainder-divisor) divisor
+  0 jz(repeatedsubtractionloop)
+
+repeatedsubtractionend:
+  # quotient remainder divisor
+  drop return
+
+repeatedsubtractionzero:
+  # dividend divisor
+  debug
+  drop drop
+  0 0 return
+
+repeatedsubtractiondivisornegative:
+  # dividend divisor
+  0 swap -
+  # dividend -divisor
+  call(repeatedsubtraction)
+  # -quotient remainder
+  swap 0 swap - swap
+  # quotient remainder
+  return
+
+repeatedsubtractiondividendnegative:
+  # dividend divisor
+  swap over             # stash a divisor in case of remainder
+  # divisor dividend divisor
+  swap 0 swap - swap
+  # divisor -dividend divisor
+  call(repeatedsubtraction)
+  # divisor q' r'
+  dup jz(repeatedsubtractionremainder0)
+  >R 0 swap - 1 -
+  # divisor quotient
+  swap R> -
+  # quotient remainder
+  return
+
+repeatedsubtractionremainder0:
+  # divisor -quotient 0
+  drop swap drop
+  # -quotient
+  0 swap - 0
+  # quotient 0
+  return

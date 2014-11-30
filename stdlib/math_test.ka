@@ -1,0 +1,50 @@
+# math_test.ka
+
+# Tests for the routines of the math stdlib.
+
+0 jz(init)
+
+fail:
+  0 debug
+
+pass:
+  1 halt
+
+init:
+  call(testmultiply)
+  call(testdivide)
+  0 jz(pass)
+
+testmultiply:
+  6 9 call(multiply)
+  54 - jz(testmultiply2)
+  0 jz(fail)
+testmultiply2:
+  0 4 - 13 call(multiply)
+  0 52 - - jz(testmultiply3)
+  0 jz(fail)
+testmultiply3:
+  0 6 - 0 5 - call(multiply)
+  30 - jz(testmultiplydone)
+  0 jz(fail)
+testmultiplydone:
+  return
+
+testdivide:
+  12 4 call(divide)
+  jz(testdivide2)
+  0 jz(fail)
+testdivide2:
+  3 - jz(testdivide3)
+  0 jz(fail)
+testdivide3:
+  14 0 3 - call(divide)
+  2 - jz(testdivide4)
+  0 jz(fail)
+testdivide4:
+  0 4 - - jz(testdividedone)
+  0 jz(fail)
+testdividedone:
+  return
+
+import <math.ka>
