@@ -15,7 +15,7 @@ type Lexer interface {
     GetToken() int
 }
 
-const tokenExpression string = "(!|\\+|-|>R|@|AND|DROP|DUP|OR|OVER|R>|SWAP|XOR|\\[IF]|\\[CALL]|\\[EXIT]|\\[LIT]|[0-9]+)"
+const tokenExpression string = "(!|\\+|-|>R|@|AND|DROP|DUP|OR|OVER|R>|SWAP|XOR|\\[IF]|\\[CALL]|\\[EXIT]|\\[LIT]|DEBUG|[0-9]+)"
 var tokenRE *regexp.Regexp = regexp.MustCompile(tokenExpression)
 
 const whitespaceExpression string = "^[ \t\n\r]$"
@@ -85,6 +85,8 @@ func (s *strLexer) GetToken() int {
         return int(instruction.Exit)
     case "[LIT]":
         return int(instruction.LitCode)
+    case "DEBUG":
+        return int(instruction.Debug)
     default:
         val, err := strconv.ParseInt(t, 10, 32)
         if err != nil {

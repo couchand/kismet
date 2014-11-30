@@ -65,7 +65,7 @@ var integerRE *regexp.Regexp = makeMatcher(integerExpression)
 const labelExpression string = "[a-zA-Z_][a-zA-Z_0-9]*"
 var labelRE *regexp.Regexp = makeMatcher(labelExpression)
 
-const instructionExpression string = "((?i)!|\\+|-|>R|@|&|DROP|DUP|\\||OVER|R>|SWAP|XOR|JZ|CALL|RETURN|HALT)"
+const instructionExpression string = "((?i)!|\\+|-|>R|@|&|DROP|DUP|\\||OVER|R>|SWAP|XOR|JZ|CALL|RETURN|HALT|DEBUG)"
 var instructionRE *regexp.Regexp = makeMatcher(instructionExpression)
 
 const commentExpression string = "#"
@@ -177,6 +177,8 @@ func (r rawToken) Instruction() (opcode instruction.Opcode, err error) {
         return instruction.Exit, nil
     case "HALT":
         return instruction.Halt, nil
+    case "DEBUG":
+        return instruction.Debug, nil
     default:
         // application error
         panic(makeError(r, "Unknown instruction '%v' found", r.raw))

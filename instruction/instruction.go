@@ -1,5 +1,7 @@
 package instruction
 
+import "fmt"
+
 type Opcode int
 
 const (
@@ -21,10 +23,11 @@ const (
     CallCode
     Exit
     LitCode
+    Debug
 )
 
 func IsOpcode(d int) bool {
-    return d >= int(Halt) && d <= int(LitCode)
+    return d >= int(Halt) && d <= int(Debug)
 }
 
 func IsDoubleWideOpcode(d int) bool {
@@ -51,6 +54,52 @@ func (o Opcode) GetWords() []int {
 
 func (o Opcode) IsDoubleWide() bool {
     return o == IfCode || o == CallCode || o == LitCode
+}
+
+func (o Opcode) String() string {
+    switch o {
+    case Halt:
+        return "HALT"
+    case Store:
+        return "!"
+    case Add:
+        return "+"
+    case Sub:
+        return "-"
+    case ToR:
+        return ">R"
+    case Fetch:
+        return "@"
+    case And:
+        return "AND"
+    case Drop:
+        return "DROP"
+    case Dup:
+        return "DUP"
+    case Or:
+        return "OR"
+    case Over:
+        return "OVER"
+    case RFrom:
+        return "R>"
+    case Swap:
+        return "SWAP"
+    case Xor:
+        return "XOR"
+    case IfCode:
+        return "[IF]"
+    case CallCode:
+        return "[CALL]"
+    case Exit:
+        return "[EXIT]"
+    case LitCode:
+        return "[LIT]"
+    case Debug:
+        return "DEBUG"
+    default:
+        msg := fmt.Sprintf("unknown opcode %v", o)
+        panic(msg)
+    }
 }
 
 type DoubleWide struct {

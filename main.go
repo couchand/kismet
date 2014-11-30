@@ -30,14 +30,17 @@ func runFile(f string, debug, quiet bool) {
             fmt.Printf("%v\n", m)
         }
 
-        done := m.Step()
-        if done {
-            break
-        }
-
         if debug {
             var cmd string
             fmt.Scanln(&cmd)
+        }
+
+        done := m.Step()
+        if done {
+            if m.State() == machine.HaltState {
+                break
+            }
+            debug = true
         }
     }
 

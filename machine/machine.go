@@ -6,9 +6,19 @@ import (
     "github.com/couchand/kismet/instruction"
 )
 
+type MachineState int
+
+const (
+    RunState MachineState = iota
+    HaltState
+    InterruptState
+)
+
 type Machine interface {
     Execute()
     Step() bool
+
+    State() MachineState
 }
 
 type mac struct {
@@ -17,6 +27,11 @@ type mac struct {
     mem Memory
 
     pc int
+    state MachineState
+}
+
+func (m *mac) State() MachineState {
+    return m.state
 }
 
 func Make10KMachine(program []instruction.T) Machine {
@@ -31,10 +46,9 @@ func Make10KMachine(program []instruction.T) Machine {
     m.Program(ints)
 
     return &mac{
-        MakeSliceStack(12),
-        MakeSliceStack(4),
-        m,
-        0,
+        ds: MakeSliceStack(12),
+        rs: MakeSliceStack(4),
+        mem: m,
     }
 }
 
@@ -44,7 +58,7 @@ func (m *mac) String() string {
     this := m.mem.GetData()
     m.mem.SetAddress(m.pc + 1)
     next := m.mem.GetData()
-    return fmt.Sprintf("10K Machine\nProgram Counter: 0x%x Value: 0x%x %x\nData Stack: %v\nReturn Stack: %v\nMemory: %v\n", m.pc, this, next, m.ds, m.rs, mem)
+    return fmt.Sprintf("10K Machine\nProgram Counter: 0x%x Value: %v 0x%x\nData Stack: %v\nReturn Stack: %v\nMemory: %v\n", m.pc, instruction.Opcode(this), next, m.ds, m.rs, mem)
 }
 
 func (m *mac) Execute() {
@@ -68,6 +82,10 @@ func (m *mac) Step() bool {
 
     switch op := instruction.Opcode(inst); op {
     case instruction.Halt:
+        m.state = HaltState
+        return true
+    case instruction.Debug:
+        m.state = InterruptState
         return true
     case instruction.Store:
         m.mem.SetAddress(m.ds.Pop())

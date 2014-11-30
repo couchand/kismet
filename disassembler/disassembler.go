@@ -8,56 +8,16 @@ import (
 )
 
 func instructionToString(t instruction.T) string {
-    switch code := t.GetOpcode(); code {
-    case instruction.Halt:
-        return "HALT"
-    case instruction.Store:
-        return "!"
-    case instruction.Add:
-        return "+"
-    case instruction.Sub:
-        return "-"
-    case instruction.ToR:
-        return ">R"
-    case instruction.Fetch:
-        return "@"
-    case instruction.And:
-        return "AND"
-    case instruction.Drop:
-        return "DROP"
-    case instruction.Dup:
-        return "DUP"
-    case instruction.Or:
-        return "OR"
-    case instruction.Over:
-        return "OVER"
-    case instruction.RFrom:
-        return "R>"
-    case instruction.Swap:
-        return "SWAP"
-    case instruction.Xor:
-        return "XOR"
-    case instruction.IfCode:
+    code := t.GetOpcode()
+
+    if code.IsDoubleWide() {
         if t.GetLength() != 2 {
-            panic("expected if jump address")
+            panic("expected instruction parameter")
         }
-        return fmt.Sprintf("[IF]\n%v", t.GetWords()[1])
-    case instruction.CallCode:
-        if t.GetLength() != 2 {
-            panic("expected call jump address")
-        }
-        return fmt.Sprintf("[CALL]\n%v", t.GetWords()[1])
-    case instruction.Exit:
-        return "[EXIT]"
-    case instruction.LitCode:
-        if t.GetLength() != 2 {
-            panic("expected literal")
-        }
-        return fmt.Sprintf("[LIT]\n%v", t.GetWords()[1])
-    default:
-        msg := fmt.Sprintf("unknown opcode %v", code)
-        panic(msg)
+        return fmt.Sprintf("%v\n%v", code.String(), t.GetWords()[1])
     }
+
+    return code.String()
 }
 
 func Disassemble(instructions []instruction.T) string {
