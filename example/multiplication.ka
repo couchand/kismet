@@ -1,0 +1,42 @@
+# multiplication.ka
+
+# Example multiplication algorithms.
+
+5 6 call(shiftadd) halt
+
+# SHIFTADD
+# multiplicand multiplier -> product
+#   Multiply the parameters with the shift-add algorithm.
+
+shiftadd:
+  # multiplicand multiplier
+  dup jz(shiftaddzero)  # if either parameter is zero, bail
+  swap dup jz(shiftaddzero)
+  # multiplier multiplicand
+  >R                 # stash multiplicand
+  31 swap            # iterations
+  0                  # partial product
+shiftaddloop:
+  over 1073741824 &     # test MSB
+  # count multiplier product (multiplier.MSB)
+  jz(shiftaddloopnext)
+  R> dup >R +           # add multiplicand to partial product
+shiftaddloopnext:
+  # count multiplier product
+  >R >R 1 -             # stash multiplier & product
+  # (count-1)
+  dup jz(shiftaddloopend)
+  R> R>                 # restore multiplier & product
+  # count multiplier product
+  dup + swap dup + swap # shift both left
+  0 jz(shiftaddloop)
+shiftaddloopend:
+  # count
+  drop
+  # R: multiplicand product multiplier
+  R> drop R> R> drop
+  # product
+  return
+shiftaddzero:
+  # multiplicand multiplier
+  drop drop 0 return
