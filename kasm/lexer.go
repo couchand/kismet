@@ -21,6 +21,8 @@ const (
     BracketOpenToken
     BracketCloseToken
     ColonToken
+    ImportToken
+    FilenameToken
 )
 
 type Token interface {
@@ -68,6 +70,12 @@ var labelRE *regexp.Regexp = makeMatcher(labelExpression)
 const instructionExpression string = "((?i)!|\\+|-|>R|@|&|DROP|DUP|\\||OVER|R>|SWAP|XOR|JZ|CALL|RETURN|HALT|DEBUG)"
 var instructionRE *regexp.Regexp = makeMatcher(instructionExpression)
 
+const importExpression string = "import"
+var importRE *regexp.Regexp = makeMatcher(importExpression)
+
+const filenameExpression string = "<[-/a-zA-Z0-9.]+>"
+var filenameRE *regexp.Regexp = makeMatcher(filenameExpression)
+
 const commentExpression string = "#"
 var commentRE *regexp.Regexp = makeMatcher(commentExpression)
 
@@ -85,6 +93,8 @@ var opts = []string{
     bracketCloseExpression,
     integerExpression,
     instructionExpression,
+    importExpression,
+    filenameExpression,
     labelExpression,
     commentExpression,
 }
@@ -228,6 +238,10 @@ func MakeToken(raw string, file string, line int, column int) Token {
         return tok(IntegerToken)
     case instructionRE.MatchString(raw):
         return tok(InstructionToken)
+    case importRE.MatchString(raw):
+        return tok(ImportToken)
+    case filenameRE.MatchString(raw):
+        return tok(FilenameToken)
     case labelRE.MatchString(raw):
         return tok(LabelToken)
     default:

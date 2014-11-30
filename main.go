@@ -41,10 +41,13 @@ func runFile(f string, debug, quiet bool) {
                 break
             }
             debug = true
+            quiet = false
         }
     }
 
-    fmt.Printf("%v\n", m)
+    if quiet {
+        fmt.Printf("%v\n", m)
+    }
     fmt.Printf("Done.\n\n")
 }
 

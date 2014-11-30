@@ -1,7 +1,8 @@
 package kasm
 
 import (
-//    "fmt"
+    //"fmt"
+    "io/ioutil"
 
     "github.com/couchand/kismet/instruction"
 )
@@ -13,6 +14,40 @@ type parser struct {
 
 func MakeParser(l Lexer) parser {
     return parser{l, MakeLabelIndex()}
+}
+
+func (p *parser) importFile(file Token) (is []*InstructionPrototype, err error) {
+    var contents []byte
+
+    filename := file.Raw()
+    filename = filename[1:len(filename)-1]
+
+    contents, err = ioutil.ReadFile(filename)
+    if err != nil {
+        return
+    }
+
+    //fmt.Printf("Read file '%v'\n", string(contents))
+
+    k := MakeFileLexer(string(contents), filename)
+    j := MakeParser(k)
+
+    is, err = j.Parse()
+    if err != nil {
+        panic(err)
+    }
+
+    for n, v := range j.labels {
+        _, exists := p.labels[n]
+        if exists {
+            err = makeError(file, "Import conflict on label '%v'", n)
+            return
+        }
+
+        p.labels[n] = v
+    }
+
+    return
 }
 
 func (p *parser) Parse() (instructions []*InstructionPrototype, err error) {
@@ -27,6 +62,26 @@ func (p *parser) Parse() (instructions []*InstructionPrototype, err error) {
         case EOFToken:
             instructions = is
             return
+
+        case ImportToken:
+            var file Token
+            file, err = p.lexer.GetToken()
+            if err != nil {
+                return
+            }
+            if file.Type() != FilenameToken {
+                err = makeError(file, "Expected import filename.")
+                return
+            }
+            var imported []*InstructionPrototype
+            imported, err = p.importFile(file)
+            if err != nil {
+                return
+            }
+
+            for _, i := range imported {
+                is = append(is, i)
+            }
 
         default:
             var inst *InstructionPrototype

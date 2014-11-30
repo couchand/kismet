@@ -1,1 +1,4 @@
 assembler/testing.ko
+example/*.ko
+*.ko
+a.out

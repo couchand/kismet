@@ -1,0 +1,4 @@
+call(thing)
+halt
+
+import <./library.ka>
