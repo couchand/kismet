@@ -2,7 +2,7 @@
 
 # Example multiplication algorithms.
 
-5 6 call(shiftadd) halt
+0 5 - 6 call(shiftadd) halt
 
 # SHIFTADD
 # multiplicand multiplier -> product

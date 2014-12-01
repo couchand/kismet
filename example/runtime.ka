@@ -2,16 +2,143 @@
 
 # An example runtime.
 
-0 1 2 3 4 5 6 7 0
-call(cons) call(cons) call(cons) call(cons)
-call(cons) call(cons) call(cons) call(cons)
+2 1 6 8 3 9 7 4 5 0 call(nil)
+call(cons) call(cons) call(cons) call(cons) call(cons)
+call(cons) call(cons) call(cons) call(cons) call(cons)
 
-[splat] call(apply)
+call(quicksort)
+call(splat)
+
 halt
 
+# SPLAT
+# list -> a b c...
+#   Puts the elements of the list on the stack in order.
+
 splat:
+  [splatkernel] call(apply)
+  return
+
+splatkernel:
   swap >R swap R>
   return
+
+# QUICKSORT
+# list -> sortedlist
+#   Sorts the list using the quicksort algorithm.
+
+quicksort:
+  dup jz(quicksortnil)
+  # list (not nil)
+  dup call(car) swap    # load head as pivot
+  # pivot list
+  over swap over over
+  # pivot pivot list pivot list
+  call(filterlessthan)
+  >R
+  call(filtergreaterthan)
+  R> swap
+  # pivot lessthan greaterthan
+  call(quicksort)
+  >R call(quicksort) swap R>
+  # lessthansorted pivot greaterthansorted
+  call(cons) call(append)
+  # sorted
+  return
+
+quicksortnil:
+  # 0
+  return
+
+# NEGATIVE
+# -> neg
+#   Returns a mask for the negative bit.
+
+negative:
+  0 2147483647 - 1 -    # most negative number
+  return
+
+# LESSTHAN
+# a b -> c
+#   Returns 1 if `a < b`, 0 otherwise.
+
+lessthan:
+  - call(negative) & jz(lessthanfalse)
+  1 return
+lessthanfalse:
+  0 return
+
+# GREATERTHAN
+# a b -> c
+#   Returns 1 if `a > b`, 0 otherwise.
+
+greaterthan:
+  swap - call(negative) & jz(greaterthanfalse)
+  1 return
+greaterthanfalse:
+  0 return
+
+# FILTERLESSTHAN
+# value list -> filteredlist
+#   Filters the `list` to contain only elements less than `value`.
+
+filterlessthan:
+  dup jz(filterlessthannil)
+  # value list (not nil)
+  over over call(car)
+  # value list value list.car
+  swap over swap call(lessthan)
+  # value list list.car (list.car<value)
+  jz(filterlessthanexclude)
+  # value list list.car
+  swap >R swap R> call(cdr)
+  # list.car value list.cdr
+  call(filterlessthan)
+  call(cons)
+  return
+
+filterlessthanexclude:
+  # value list list.car
+  drop
+  call(cdr)
+  # value list.cdr
+  call(filterlessthan)
+  return
+
+filterlessthannil:
+  # value 0
+  swap drop return
+
+# FILTERGREATERTHAN
+# value list -> filteredlist
+#   Filters the `list` to contain only elements greater than `value`.
+
+filtergreaterthan:
+  dup jz(filtergreaterthannil)
+  # value list (not nil)
+  over over call(car)
+  # value list value list.car
+  swap over swap call(greaterthan)
+  # value list list.car (list.car>value)
+  jz(filtergreaterthanexclude)
+  # value list list.car
+  swap >R swap R> call(cdr)
+  # list.car value list.cdr
+  call(filtergreaterthan)
+  call(cons)
+  return
+
+filtergreaterthanexclude:
+  # value list list.car
+  drop
+  call(cdr)
+  # value list.cdr
+  call(filtergreaterthan)
+  return
+
+filtergreaterthannil:
+  # value 0
+  swap drop return
 
 # MALLOC
 # size -> p
@@ -75,6 +202,24 @@ lenret:
 # list len
   swap drop
   return
+
+# APPEND
+# list1 list2 -> appendedlist
+#   Appends the second list to the end of the first list.
+
+append:
+  over jz(appendtonil)
+  # list1 (non-nil) list2
+  >R dup call(car) swap call(cdr) R>
+  # list1.car list1.cdr list2
+  call(append)
+  # list1.car (list1.cdr+list2)
+  call(cons)
+  return
+
+appendtonil:
+  # nil list
+  swap drop return
 
 # BR
 # addr ->
