@@ -6,6 +6,8 @@ import (
     "fmt"
     "flag"
     "io/ioutil"
+    "strconv"
+    "regexp"
 
     "github.com/couchand/kismet/asm"
     "github.com/couchand/kismet/kasm"
@@ -16,6 +18,8 @@ import (
     "github.com/couchand/kismet/machine"
 )
 
+var rangeRE *regexp.Regexp = regexp.MustCompile("^([0-9a-f]+)-([0-9a-f]+)$")
+
 func runFile(f string, debug, quiet bool) {
     p, err := loader.Load(f)
     if err != nil {
@@ -25,14 +29,62 @@ func runFile(f string, debug, quiet bool) {
 
     m := machine.Make10KMachine(p)
 
+    watches := make([]int, 0)
+
     for {
         if !quiet {
             fmt.Printf("%v\n", m)
+            for _, addr := range watches {
+                val := m.MemoryAt(addr)
+                fmt.Printf("Watch [0x%.8x]: 0x%.8x\n", addr, val)
+            }
         }
 
         if debug {
             var cmd string
-            fmt.Scanln(&cmd)
+            var param string
+            fmt.Scanln(&cmd, &param)
+
+            if len(cmd) > 0 {
+                switch cmd[0] {
+                case 'R', 'r':
+                    debug = false
+                case 'W', 'w':
+                    var addrstr string
+                    if len(param) == 0 {
+                        if len(cmd[1:]) == 0 {
+                            break
+                        }
+
+                        addrstr = cmd[1:]
+                    } else {
+                        addrstr = param
+                    }
+                    if rangeRE.MatchString(addrstr) {
+                        groups := rangeRE.FindStringSubmatch(addrstr)
+                        start, err := strconv.ParseInt(groups[1], 16, 32)
+                        if err != nil {
+                            fmt.Println("Error:", err)
+                        } else {
+                            end, err := strconv.ParseInt(groups[2], 16, 32)
+                            if err != nil {
+                                fmt.Println("Error:", err)
+                            } else {
+                                for i := int(start); i <= int(end); i += 1 {
+                                    watches = append(watches, i)
+                                }
+                            }
+                        }
+                    } else {
+                        addr, err := strconv.ParseInt(addrstr, 16, 32)
+                        if err != nil {
+                            fmt.Println("Error:", err)
+                        } else {
+                            watches = append(watches, int(addr))
+                        }
+                    }
+                }
+            }
         }
 
         done := m.Step()

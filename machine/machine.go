@@ -19,6 +19,7 @@ type Machine interface {
     Step() bool
 
     State() MachineState
+    MemoryAt(int) int
 }
 
 type mac struct {
@@ -59,6 +60,11 @@ func (m *mac) String() string {
     m.mem.SetAddress(m.pc + 1)
     next := m.mem.GetData()
     return fmt.Sprintf("10K Machine\nProgram Counter: 0x%x Value: %v 0x%x\nData Stack: %v\nReturn Stack: %v\nMemory: %v\n", m.pc, instruction.Opcode(this), next, m.ds, m.rs, mem)
+}
+
+func (m *mac) MemoryAt(addr int) int {
+    m.mem.SetAddress(addr)
+    return m.mem.GetData()
 }
 
 func (m *mac) Execute() {

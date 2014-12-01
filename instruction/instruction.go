@@ -97,7 +97,7 @@ func (o Opcode) String() string {
     case Debug:
         return "DEBUG"
     default:
-        msg := fmt.Sprintf("unknown opcode %v", o)
+        msg := fmt.Sprintf("unknown opcode %v", int(o))
         panic(msg)
     }
 }
