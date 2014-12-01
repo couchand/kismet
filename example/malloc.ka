@@ -4,29 +4,59 @@
 
 call(initmem)
 
+# Use some memory.
+
+16 call(malloc)         # start with two 16 word blocks
 16 call(malloc)
 call(free)
+call(free)
 
-8 call(malloc)
+8 call(malloc)          # split one into 8 and 4
 4 call(malloc)
+6 call(malloc)          # carve a long-lived 6 from the other
+swap call(free)
+swap call(free)
+
+2 call(malloc)          # split those blocks up more
+2 call(malloc)
+2 call(malloc)
+2 call(malloc)
+call(free)
+call(free)
 call(free)
 call(free)
 
+2 call(malloc)          # split em up even more
+swap
 2 call(malloc)
+swap
 2 call(malloc)
+swap
 2 call(malloc)
+swap
+2 call(malloc)
+swap
+2 call(malloc)
+swap call(free)         # the six finally dies
+2 call(malloc)          # and gets turned into twos
 2 call(malloc)
 call(free)
 call(free)
 call(free)
 call(free)
+call(free)
+call(free)              # Through it all we shouldn't have needed to
+call(free)              # reach into the wilderness for anything but
+call(free)              # the initial two 16 word blocks.
+
+# Calculate memory used.
 
 [nextaddress]
 1 + @                   # fetch next address
 [data] -                # subtract start of heap
 
-# If our memory manager is optimal, the number 0x12 will
-# be left on the stack (16 for the data and 2 for the tags).
+# If our memory manager is optimal, the number 0x24 will be left on
+# the stack (0x20 for the data and 4 for the tags).
 
 halt
 
@@ -80,7 +110,7 @@ mallocfindchunk:
   # size bin
   over over swap
   # size bin bin size
-  call(findbiggerchunk)
+  call(findchunk)
   # size bin chunk
   dup jz(mallocfindchunknext)
   0 jz(mallocreused)
@@ -118,7 +148,7 @@ mallocreused:
   # size chunk
   swap over @ over
   # chunk size chunk.size size
-  6 + call(lessthan)    # check if `chunk.size < size + 9`
+  4 + call(lessthan)    # check if `chunk.size < size + 4`
   jz(mallocreusedsplit)
   # chunk size
   drop 0 jz(mallocreturnchunk)
@@ -191,31 +221,16 @@ makechunk:
 # SPLITCHUNK
 # p size ->
 #   Split the chunk at `p` into one of size `size` and another with
-#   the remainder.  A noop if `current < 6` or chunk allocated.
+#   the remainder.
 
 splitchunk:
-  over @ 5 swap
-  # p size 5 current
-splitchunksizeloop:
-  # p size min count
-  over jz(splitchunkcheck)
-  # p size min count
-  dup jz(splitchunknoop)
-  1 - swap 1 - swap
-  # p size (min-1) (count-1)
-  0 jz(splitchunksizeloop)
-splitchunknoop:
-  # p size something something
-  drop drop drop drop return
-splitchunkcheck:
-  # p size 0 count
-  drop drop
   # p size
   over @                # get current chunk size
   dup call(negative) &  # is chunk allocated?
   # p size current allocated
   jz(splitchunkkernel)
-  0 0 jz(splitchunknoop)
+  # p size current
+  drop drop drop return
 splitchunkkernel:
   # p size current
   >R                    # stash current size
@@ -225,8 +240,8 @@ splitchunkkernel:
   # p size
   swap over + 2 + swap
   # (p+size+2) size 
-  R> swap -
-  # (p+size+2) (current-size)
+  R> swap - 2 -
+  # (p+size+2) (current-size-2)
   call(makechunk)       # make leftover chunk
   return
 
@@ -296,34 +311,36 @@ removechunknextnull:
   drop drop drop drop
   return
 
-# FINDBIGGERCHUNK
+# FINDCHUNK
 # bin size -> chunk
-#   Finds the first chunk in `bin` bigger than `size`.  Returns 0 if
-#   the bin is empty or no chunk is found.
+#   Finds the first chunk in `bin` at least `size` words.  Returns 0
+#   if the bin is empty or no suitable chunk is found.
 
-findbiggerchunk:
+findchunk:
   # bin size
   swap @
   # size bin.head
 
-findbiggerchunkloop:
+findchunkloop:
   # size next
-  dup jz(findbiggerchunknil)
+  dup jz(findchunknil)
   # size next
   over over @             # load bin.head size
   # size next size next.size
-  call(lessthan)
-  jz(findbiggerchunknext)
+  swap call(lessthan)
+  1 swap -
+  # size next !(next.size < size)
+  jz(findchunknext)
   # size next (next is bigger than size)
   swap drop return
 
-findbiggerchunknext:
+findchunknext:
   # size next
   1 + @
   # size next.next
-  0 jz(findbiggerchunkloop)
+  0 jz(findchunkloop)
 
-findbiggerchunknil:
+findchunknil:
   # size 0
   swap drop return
 
@@ -349,8 +366,12 @@ insertchunkloop:
   # bin chunk chunk.size next chunk.size
   over @                # get the size of the next candidate
   # bin chunk chunk.size next chunk.size next.size
-  call(lessthan)
+  swap call(lessthan) 1 swap -
+  # bin chunk chunk.size next !(next.size < chunk.size)
   jz(insertchunkloopnext)
+
+  # bin chunk chunk.size next
+  swap drop
   # bin chunk next (chunk is smaller than next)
   over over 2 + @       # read `next.prev`
   # bin chunk next chunk [next.prev]
@@ -377,6 +398,8 @@ insertchunkprevnil:
   # bin chunk next chunk bin
   !                     # store chunk as bin head
   # bin chunk next
+  over 0 swap 2 + !     # store `chunk.prev = 0`
+  # bin chunk next
   0 jz(insertchunksetnextlinks)
 
 insertchunkloopnext:
@@ -385,13 +408,18 @@ insertchunkloopnext:
   # bin chunk next next.next
   dup jz(insertchunklast)
   swap drop
+  # bin chunk next.next
+  >R dup @ R> over
+  # bin chunk chunk.size next chunk.size
   0 jz(insertchunkloop)
 
 insertchunklast:
   # bin chunk prev 0
   drop over over 1 + !  # write `prev.next = chunk`
   # bin chunk prev
-  swap 2 + !            # write `chunk.prev = prev`
+  over 2 + !            # write `chunk.prev = prev`
+  # bin chunk
+  0 swap 1 + !          # write `chunk.next = 0`
   # bin
   drop return
 
