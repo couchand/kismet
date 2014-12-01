@@ -1,0 +1,463 @@
+# malloc.ka
+
+# A simple malloc/free implementation
+
+call(initmem)
+
+16 call(malloc)
+call(free)
+
+8 call(malloc)
+4 call(malloc)
+call(free)
+call(free)
+
+2 call(malloc)
+2 call(malloc)
+2 call(malloc)
+2 call(malloc)
+call(free)
+call(free)
+call(free)
+call(free)
+
+[nextaddress]
+1 + @                   # fetch next address
+[data] -                # subtract start of heap
+
+# If our memory manager is optimal, the number 0x12 will
+# be left on the stack (16 for the data and 2 for the tags).
+
+halt
+
+# NEGATIVE
+# -> neg
+#   Returns a mask for the negative bit.
+
+negative:
+  0 2147483647 - 1 -    # most negative number
+  return
+
+# LESSTHAN
+# a b -> c
+#   Returns 1 if `a < b`, 0 otherwise.
+
+lessthan:
+  - call(negative) & jz(lessthanzero)
+  1 return
+lessthanzero:
+  0 return
+
+# ALLOCA
+# size -> p
+#   Allocates `size` words of memory from the wilderness, returning
+#   `p`, the pointer to the allocated space.
+
+alloca:
+  [nextaddress] 1 + @   # fetch
+  swap over +           # increment
+  [nextaddress] 1 + !   # store
+  return
+
+# MALLOC
+# size -> p
+#   Tries to allocate `size` words of memory.  Returns `p`, the
+#   pointer to the allocated space, if successful, otherwise 0.
+
+malloc:
+  # size
+  dup 129 call(lessthan)    # check that `size < 129`
+  jz(mallocreturnnil)
+  0 1 - over
+  # size -1 size
+  call(lessthan)        # check that `-1 < size`
+  jz(mallocreturnnil)
+  # size
+  dup call(findbin)
+  # size bin
+
+mallocfindchunk:
+  # size bin
+  over over swap
+  # size bin bin size
+  call(findbiggerchunk)
+  # size bin chunk
+  dup jz(mallocfindchunknext)
+  0 jz(mallocreused)
+
+mallocfindchunknext:
+  # size bin 0
+  drop 2 +
+  # size (bin+2)
+  dup [binsend] -       # compare next bin to end of bins
+  jz(mallocfindfailed)
+  # size (bin+2)
+  0 jz(mallocfindchunk)
+
+mallocfindfailed:
+  # size [binsend]
+  drop 0 jz(mallocfresh)
+
+mallocreturnnil:
+  # size
+  drop 0 return
+
+mallocfresh:
+  # size
+  dup 2 + call(alloca)
+  # size p
+  swap over swap
+  # p p size
+  call(makechunk)
+  # p
+  0 jz(mallocreturnchunk)
+
+mallocreused:
+  # size bin chunk
+  swap over call(removechunk)
+  # size chunk
+  swap over @ over
+  # chunk size chunk.size size
+  6 + call(lessthan)    # check if `chunk.size < size + 9`
+  jz(mallocreusedsplit)
+  # chunk size
+  drop 0 jz(mallocreturnchunk)
+
+mallocreusedsplit:
+  # chunk size
+  over over call(splitchunk)
+  2 + over +            # offset for head and tail
+  # chunk splitchunk
+  dup @                 # get splitchunk size
+  # chunk splitchunk size
+  call(findbin)
+  dup jz(mallocreusederr)
+  # chunk splitchunk bin
+  swap call(insertchunk)
+  # chunk
+  0 jz(mallocreturnchunk)
+
+mallocreusederr:
+  # chunk splitchunk 0
+  #     Couldn't find a bin to store the split in. Programmer error.
+  drop drop
+
+mallocreturnchunk:
+  # chunk
+  dup call(alloctoggle)
+  1 + return            # return pointer to user space
+
+# FREE
+# p ->
+#   Frees the pointer at `p` back to the heap.
+
+free:
+  # userp
+  1 -
+  # p
+  dup call(alloctoggle)
+  # p
+  dup @ call(findbin)   # find bin for this chunk
+  # p bin
+  swap call(insertchunk)
+  return
+
+# MAKECHUNK
+# p size ->
+#   Makes a chunk of size `size` at `p`.
+#   Each free chunk has the structure:
+#       size/status (positive size for free)
+#       pointer to next
+#       pointer to prev
+#       ...unused data...
+#       size
+#   And each allocated chunk has the structure:
+#       size/status (negative size for allocated)
+#       ...user data...
+#       size
+#   Thus `size` must be at least 2 words and there is a fixed overhead
+#   of 2 words per chunk.
+#   Note that `size` is always user size, the system (real) size is
+#   two words larger.
+
+makechunk:
+  over over swap over
+  # p size size p size
+  + 1 + !               # write size to tail tag
+  # p size
+  swap !                # write size to head tag
+  return
+
+# SPLITCHUNK
+# p size ->
+#   Split the chunk at `p` into one of size `size` and another with
+#   the remainder.  A noop if `current < 6` or chunk allocated.
+
+splitchunk:
+  over @ 5 swap
+  # p size 5 current
+splitchunksizeloop:
+  # p size min count
+  over jz(splitchunkcheck)
+  # p size min count
+  dup jz(splitchunknoop)
+  1 - swap 1 - swap
+  # p size (min-1) (count-1)
+  0 jz(splitchunksizeloop)
+splitchunknoop:
+  # p size something something
+  drop drop drop drop return
+splitchunkcheck:
+  # p size 0 count
+  drop drop
+  # p size
+  over @                # get current chunk size
+  dup call(negative) &  # is chunk allocated?
+  # p size current allocated
+  jz(splitchunkkernel)
+  0 0 jz(splitchunknoop)
+splitchunkkernel:
+  # p size current
+  >R                    # stash current size
+  over over
+  # p size p size
+  call(makechunk)       # make request chunk
+  # p size
+  swap over + 2 + swap
+  # (p+size+2) size 
+  R> swap -
+  # (p+size+2) (current-size)
+  call(makechunk)       # make leftover chunk
+  return
+
+# ALLOCTOGGLE
+# p ->
+#   Toggles the in use flag on the memory location `p`.
+
+alloctoggle:
+  dup @ 0 swap -
+  # p -size
+  swap ! return
+
+# SETLINKS
+# p prev next ->
+#   Sets the links to the previous and next chunks in this bin.
+
+setlinks:
+  >R over R>
+  # p prev p next
+  swap 1 + !            # store next
+  swap 2 + !            # store prev
+  return
+
+# REMOVECHUNK
+# bin p ->
+#   Removes the chunk from the bin by setting `p.prev.next = p.next`
+#   and `p.next.prev = p.prev`.  If `p.prev` is nil, also updates the
+#   `bin` pointer to point to `p.next`.
+
+removechunk:
+  dup dup 1 + @         # get next
+  # bin p p p.next
+  swap 2 + @            # get prev
+removechunkprev:
+  # bin p p.next p.prev
+  over over
+  # bin p p.next p.prev p.next p.prev
+  dup jz(removechunkprevnull)   # jump if p.prev is 0
+  1 +
+  # bin p p.next p.prev p.next [p.prev.next]
+  !                     # store `p.prev.next = p.next`
+removechunknext:
+  # bin p p.next p.prev
+  swap
+  # bin p p.prev p.next
+  dup jz(removechunknextnull)
+  2 +
+  # bin p p.prev [p.next.prev]
+  !                     # store `p.next.prev = p.prev`
+  # bin p
+  drop drop
+  return
+
+removechunkprevnull:
+  # bin p p.next p.prev p.next p.prev
+  drop drop drop
+  # bin p p.next
+  >R over R> swap
+  # bin p p.next bin
+  over swap !           # store p.next at bin pointer
+  # bin p p.next
+  0                     # p.prev
+  0 jz(removechunknext)
+
+removechunknextnull:
+  # bin p p.prev p.next
+  drop drop drop drop
+  return
+
+# FINDBIGGERCHUNK
+# bin size -> chunk
+#   Finds the first chunk in `bin` bigger than `size`.  Returns 0 if
+#   the bin is empty or no chunk is found.
+
+findbiggerchunk:
+  # bin size
+  swap @
+  # size bin.head
+
+findbiggerchunkloop:
+  # size next
+  dup jz(findbiggerchunknil)
+  # size next
+  over over @             # load bin.head size
+  # size next size next.size
+  call(lessthan)
+  jz(findbiggerchunknext)
+  # size next (next is bigger than size)
+  swap drop return
+
+findbiggerchunknext:
+  # size next
+  1 + @
+  # size next.next
+  0 jz(findbiggerchunkloop)
+
+findbiggerchunknil:
+  # size 0
+  swap drop return
+
+# INSERTCHUNK
+# bin chunk ->
+#   Inserts the chunk into the bin by inserting into the bin list in
+#   sorted order, setting the prior bin's next and the next bin's prev
+#   to the chunk, and setting the chunks's links accordingly.
+#   Assumes the status is unallocated, thus the size is positive.
+
+insertchunk:
+  # bin chunk
+  over @
+  # bin chunk bin.head
+  dup jz(insertchunknil)
+  # bin chunk bin.head
+  over @                # get the size of the chunk
+  # bin chunk bin.head chunk.size
+  swap over
+  # bin chunk chunk.size bin.head chunk.size
+
+insertchunkloop:
+  # bin chunk chunk.size next chunk.size
+  over @                # get the size of the next candidate
+  # bin chunk chunk.size next chunk.size next.size
+  call(lessthan)
+  jz(insertchunkloopnext)
+  # bin chunk next (chunk is smaller than next)
+  over over 2 + @       # read `next.prev`
+  # bin chunk next chunk [next.prev]
+  dup jz(insertchunkprevnil)
+
+insertchunksetprevlinks:
+  over over
+  # bin chunk next chunk [next.prev] chunk [next.prev]
+  1 + !                 # write `prev.next = chunk`
+  # bin chunk next chunk [next.prev]
+  swap 2 + !            # write `chunk.prev = prev`
+
+insertchunksetnextlinks:
+  # bin chunk next
+  over over 2 + !       # write `next.prev = chunk`
+  # bin chunk next
+  swap 1 + !            # write `chunk.next = next`
+  # bin
+  drop return
+
+insertchunkprevnil:
+  # bin chunk next chunk 0
+  drop >R >R over R> swap R> swap
+  # bin chunk next chunk bin
+  !                     # store chunk as bin head
+  # bin chunk next
+  0 jz(insertchunksetnextlinks)
+
+insertchunkloopnext:
+  # bin chunk chunk.size next
+  swap drop dup 1 + @
+  # bin chunk next next.next
+  dup jz(insertchunklast)
+  swap drop
+  0 jz(insertchunkloop)
+
+insertchunklast:
+  # bin chunk prev 0
+  drop over over 1 + !  # write `prev.next = chunk`
+  # bin chunk prev
+  swap 2 + !            # write `chunk.prev = prev`
+  # bin
+  drop return
+
+insertchunknil:
+  # bin chunk 0
+  drop swap >R dup R>
+  # chunk chunk bin
+  !                     # store chunk as bin head
+  0 0 call(setlinks)    # nil next, nil prev
+  return
+
+# INITMEM
+# ->
+#   Initializes the data structures for memory management.  Must be
+#   called before any other memory call.
+
+initmem:
+  [bins]
+
+initmemloop:
+  # pointer
+  dup [binsend] -       # compare pointer to end of bins
+  jz(initmemend)
+  0 over !              # store zero in bin pointer
+  # pointer
+  2 +                   # increment pointer
+  0 jz(initmemloop)
+
+initmemend:
+  # pointer
+  drop return
+
+# FINDBIN
+# size -> bin
+#   Finds a bin big enough to fit the given size.  If the size is
+#   negative or greater than the supported size, 0 is returned.
+
+findbin:
+  [bins]
+findbinloop:
+  # size pointer
+  dup [binsend] -       # compare pointer to end of bins
+  jz(findbinnone)
+  over over 1 + @       # load bin size
+  # size pointer size binsize
+  swap call(lessthan)
+  1 swap -              # calculate `!(binsize < size)`
+  jz(findbinloopnext)
+  # size correctbin
+  swap drop
+  return
+
+findbinloopnext:
+  # size pointer
+  2 + 0 jz(findbinloop)
+
+findbinnone:
+  # size pointer
+  drop drop 0 return
+
+# The Heap.
+
+# the next available heap address
+nextaddress: [data]
+
+# pointers to chunk at the head of each bin list
+bins: 2 4 6 8 10 12 14 16 20 24 28 32 40 48 64 96 128 binsend: 0
+
+data: 0
