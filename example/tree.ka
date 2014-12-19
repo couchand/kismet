@@ -1,0 +1,175 @@
+# tree.ka
+
+# An example binary search tree.
+
+call(maketree)
+
+dup 3 call(insert)
+dup 5 call(insert)
+dup 1 call(insert)
+dup 6 call(insert)
+dup 4 call(insert)
+dup 2 call(insert)
+
+call(splat)
+
+halt
+
+# SPLAT
+# tree -> contents...
+#   Leaves the contents of the tree on the stack in sorted order.
+
+splat:
+  # tree
+  @                     # load tree.root
+
+splatkernel:
+  # node
+  dup jz(splatempty)
+  # node
+  dup >R
+  # node (also on return stack)
+  1 + @                 # load node.left
+  # node.left
+  call(splatkernel)
+  # left.contents...
+  R> dup >R             # restore node and restash
+  # left.contents... node
+  @                     # load node value
+  # left.contents... node.val
+  R>                    # restore node
+  # left.contents... node.val node
+  2 + @                 # load node.right
+  # left.contents... node.val node.right
+  call(splatkernel)
+  # left.contents... node.val right.contents...
+  return
+
+splatempty:
+  # 0
+  drop
+  return
+
+# INSERT
+# tree val ->
+#   Inserts `val` into the tree with header `root`.
+
+insert:
+  # tree val
+  over @
+  # tree val tree.root
+  dup jz(insertroot)
+
+insertkernel:
+  # tree val tree.root
+  swap call(insertchild)
+  # tree
+  drop
+  return
+
+insertroot:
+  # tree val 0
+  drop call(makenode)
+  # tree child
+  swap !                # store tree.root = child
+  return
+
+# INSERTCHILD
+# parent val ->
+#   Inserts `val` into the tree rooted at `parent`.
+
+insertchild:
+  # parent val
+  over @ over           # load parent value
+  # parent val parent.value val
+  call(lessthan)
+  # parent val (parent.value<val)
+  jz(insertchildleft)
+
+insertchildright:
+  # parent val
+  over 2 + @            # load parent.right
+  # parent val parent.right
+  dup jz(insertchildrighthere)
+  # parent val parent.right
+  swap >R >R drop R> R>
+  # parent.right val
+  0 jz(insertchild)
+
+insertchildrighthere:
+  # parent val 0 (parent has no right child)
+  drop
+  # parent val
+  call(makenode)
+  # parent child
+  swap 2 + !            # store parent.right = child
+  return
+
+insertchildleft:
+  # parent val
+  over 1 + @            # load parent.left
+  # parent val parent.left
+  dup jz(insertchildlefthere)
+  # parent val parent.left
+  swap >R >R drop R> R>
+  # parent.left val
+  0 jz(insertchild)
+
+insertchildlefthere:
+  # parent val 0 (parent has no left child)
+  drop
+  # parent val
+  call(makenode)
+  # parent child
+  swap 1 + !            # store parent.left = child
+  return
+
+# MAKETREE
+# -> p
+#   Allocates a new header node, initializes and returns.
+
+maketree:
+  1 call(malloc)
+  # p 
+  0 over !              # initialize header pointer
+  # p
+  return
+
+# MAKENODE
+# val -> p
+#   Allocates a node on the heap, initializes and returns.
+#   Nodes have this structure:
+#     <value>
+#     <left-child>
+#     <right-child>
+
+makenode:
+  # val
+  3 call(malloc)        # allocate space
+  # val p
+  swap over !           # store node value
+  # p
+  0 over 1 + !          # initialize left child
+  # p
+  0 over 2 + !          # initialize right child
+  # p
+  return
+
+# import math functions
+import <stdlib/math.ka>
+
+# MALLOC
+# size -> p
+#   Allocates `size` words of memory in the heap, returning `p`, the
+#   pointer to the allocated space.
+
+malloc:
+  [nextaddress] 1 + @   # fetch
+  swap over +           # increment
+  [nextaddress] 1 + !   # store
+  return
+
+# The Heap.
+
+nextaddress: [data]
+data: 0
